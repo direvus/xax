@@ -1,5 +1,24 @@
 #!/usr/bin/env python3
-"""XAX: a file extractor for CD-ROM XA data"""
+"""XAX: a file extractor for CD-ROM XA data
+
+Usage: xax.py [-v] [-i INPUT_FILE] [-t TARGET_DIR]
+
+Given a raw CDROM data track (*.cdr) file, and a directory to extract into, XAX
+will go through the track sector by sector and parse their headers.  XAX knows
+how to parse Mode1, Mode2 and the CDROM XA Mode2/Form1 and Mode2/Form2 sectors.
+
+It will then write the data contents of those sectors to separate files,
+grouped by their "type", "file" and "channel" attributes.
+
+The resulting filenames follow the format "type/file/channel", where "type" is
+one of 'video', 'audio', 'data' or 'untyped', and "file" and "channel" are
+two-digit hexadecimal numbers.  So, for example, video file 1, channel 31 will
+be written out to `video/01/1f`.
+
+If you don't specify an input file, XAX will expect to receive the input on
+stdin.  If you don't specify a target directory, XAX will output files in the
+current working directory.
+"""
 import argparse
 import os
 import sys
@@ -128,6 +147,25 @@ def main(infile, target_dir, verbose=False):
         sector = Sector(data)
         if verbose:
             print(f'{n:6d} {sector}')
+
+        typename = 'untyped'
+        if sector.type_video:
+            typename = 'video'
+        elif sector.type_audio:
+            typename = 'audio'
+        elif sector.type_data:
+            typename = 'data'
+
+        dirname = os.path.join(
+                target_dir,
+                typename,
+                f'{sector.file:02x}')
+        channel = f'{sector.channel:02x}'
+        os.makedirs(dirname, exist_ok=True)
+        path = os.path.join(dirname, channel)
+        with open(path, 'ab') as fp:
+            fp.write(sector.data)
+
         n += 1
 
 
